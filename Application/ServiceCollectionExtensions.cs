@@ -11,8 +11,6 @@ namespace Application
             IConfiguration configuration,
             Action<ServiceBusConnectionBuilder> configure)
         {
-
-            //var serviceBusManager = services.BuildServiceProvider().GetRequiredService<IServiceBusManager>();
             var serviceProvider = services.BuildServiceProvider();
             var builder = new ServiceBusConnectionBuilder(ServiceBusManager.Instance, serviceProvider, configuration);
             configure(builder);
