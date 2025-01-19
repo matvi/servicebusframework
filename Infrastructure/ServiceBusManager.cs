@@ -6,19 +6,17 @@ namespace Infrastructure.Services
 {
     public class ServiceBusManager : IServiceBusManager
     {
-        private readonly ServiceBusClient _serviceBusClient;
-        private readonly IServiceProvider _serviceProvider;
+        private static readonly Lazy<ServiceBusManager> _instance = new Lazy<ServiceBusManager>(() => new ServiceBusManager());
         private readonly ConcurrentDictionary<string, ServiceBusProcessor> _processors;
 
-        public ServiceBusManager(ServiceBusClient serviceBusClient,
-            IServiceProvider serviceProvider)
+        public ServiceBusManager()
         {
-            _serviceBusClient = serviceBusClient ?? throw new ArgumentNullException(nameof(serviceBusClient));
-            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _processors = new ConcurrentDictionary<string, ServiceBusProcessor>();
         }
 
-        public void AddConsumer<TConsumer>(string topicName, string subscriptionName) where TConsumer : IServiceBusConsumer
+        public static ServiceBusManager Instance => _instance.Value;
+
+        public void AddConsumer<TConsumer>(string topicName, string subscriptionName, ServiceBusClient serviceBusClient, IServiceProvider serviceProvider) where TConsumer : IServiceBusConsumer
         {
             if (string.IsNullOrWhiteSpace(topicName))
                 throw new ArgumentException("Topic name cannot be null or empty.", nameof(topicName));
@@ -26,7 +24,7 @@ namespace Infrastructure.Services
             if (string.IsNullOrWhiteSpace(subscriptionName))
                 throw new ArgumentException("Subscription name cannot be null or empty.", nameof(subscriptionName));
 
-            var processor = _serviceBusClient.CreateProcessor(topicName, subscriptionName, new ServiceBusProcessorOptions
+            var processor = serviceBusClient.CreateProcessor(topicName, subscriptionName, new ServiceBusProcessorOptions
             {
                 AutoCompleteMessages = false,
                 MaxConcurrentCalls = 1,       
@@ -35,14 +33,14 @@ namespace Infrastructure.Services
 
             processor.ProcessMessageAsync += async args =>
             {
-                using var scope = _serviceProvider.CreateAsyncScope();
+                using var scope = serviceProvider.CreateAsyncScope();
                 var consumer = scope.ServiceProvider.GetRequiredService<TConsumer>();
                 await consumer.ProcessMessage(args);
             };
 
             processor.ProcessErrorAsync += args =>
             {
-                using var scope = _serviceProvider.CreateAsyncScope();
+                using var scope = serviceProvider.CreateAsyncScope();
                 var consumer = scope.ServiceProvider.GetRequiredService<TConsumer>();
                 return consumer.ProcessError(args);
             };
@@ -58,11 +56,13 @@ namespace Infrastructure.Services
             {
                 throw new InvalidOperationException($"Consumer for {topicName}:{subscriptionName} is already registered.");
             }
+            Console.WriteLine("Consumer added");
         }
 
         public async Task StartProcessingAsync(CancellationToken cancellationToken)
         {
             //currently processors is empty because the singleton is not working.
+            Console.WriteLine("Starting processing ***************");
             var startTasks = _processors.Values.Select(processor => processor.StartProcessingAsync(cancellationToken));
             await Task.WhenAll(startTasks);
         }

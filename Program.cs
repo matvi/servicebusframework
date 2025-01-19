@@ -10,10 +10,7 @@ using Microservices.HostedServices;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
-
-var serviceBusConnectionString = builder.Configuration["ServiceBusSettings:ConnectionString"];
-builder.Services.AddSingleton(new ServiceBusClient(serviceBusConnectionString));
-builder.Services.AddSingleton<IServiceBusManager, ServiceBusManager>();
+builder.Services.AddControllers();
 
 builder.Services.AddTransient<ShipmentCreatedConsumer>();
 builder.Services.AddTransient<TestConsumer>();
@@ -22,7 +19,7 @@ builder.Services.Configure<ServiceBusHostedServiceSettings>(builder.Configuratio
 
 builder.Services.AddScoped<IEventServiceBusServiceTask, EventServiceBusServiceTask>();
 
-builder.Services.AddConsumerServiceBusConnection(x =>
+builder.Services.AddConsumerServiceBusConnection(builder.Configuration, x =>
 {
     var topicName = builder.Configuration["ServiceBusSettings:TopicName"];
     var subscriptionName = builder.Configuration["ServiceBusSettings:SubscriptionName"];
@@ -52,12 +49,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseRouting();
 
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapControllers();
+});
 
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

@@ -13,13 +13,14 @@ namespace Infrastructure.Services
     {
         private readonly IServiceBusManager _serviceBusManager;
 
-        public EventServiceBusServiceTask(IServiceBusManager serviceBusManager)
+        public EventServiceBusServiceTask()
         {
-            _serviceBusManager = serviceBusManager;
+            _serviceBusManager = ServiceBusManager.Instance;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
+
             await _serviceBusManager.StartProcessingAsync(cancellationToken);
         }
 
